@@ -58,7 +58,7 @@ class NeuralLayer:
                 size=(self.input_dim, self.output_dim),
             )
         else:  # "xavier"
-            # Xavier/Glorot uniform initialization
+            # Xavier:  uniform initialization
             limit = np.sqrt(6.0 / (self.input_dim + self.output_dim))
             W = self.rng.uniform(
                 low=-limit,
@@ -81,6 +81,7 @@ class NeuralLayer:
         """
         self.X = X
         self.Z = X @ self.W + self.b  # (batch_size, output_dim)
+        # @ does matrix multiplication
 
         if self.activation_name is None:
             self.A = self.Z

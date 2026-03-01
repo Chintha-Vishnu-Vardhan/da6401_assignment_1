@@ -2,14 +2,13 @@
     "dataset": "mnist",
     "epochs": 5,
     "batch_size": 64,
-    "optimizer": "adam",
-    "learning_rate": 0.001,
+    "optimizer": "sgd",
+    "learning_rate": 0.01,
     "weight_decay": 0.0,
-    "num_layers": 3,
+    "num_layers": 2,
     "hidden_size": [
-        128,
-        128,
-        128
+        64,
+        64
     ],
     "activation": "relu",
     "loss": "cross_entropy",

@@ -153,35 +153,25 @@ class NeuralNetwork:
         raise ValueError(f"Unsupported loss function: {self.loss_name}")
 
     def backward(self, y_true: np.ndarray, y_pred: np.ndarray) -> Tuple[List[np.ndarray], List[np.ndarray]]:
-        """
-        Backward propagation to compute gradients.
+            if self.loss_name in ("cross_entropy", "crossentropy", "ce"):
+                d_out = cross_entropy_grad(y_true, y_pred)
+            elif self.loss_name in ("mse", "mean_squared_error"):
+                d_out = mse_grad(y_true, y_pred)
+            else:
+                raise ValueError(f"Unsupported loss function: {self.loss_name}")
 
-        Args:
-            y_true: True labels (one-hot), shape (batch_size, num_classes)
-            y_pred: Predicted outputs used for loss (either logits or probabilities),
-                    shape (batch_size, num_classes)
+            grad = d_out
+            grad_W_list: List[np.ndarray] = []
+            grad_b_list: List[np.ndarray] = []
 
-        Returns:
-            (grad_W_list, grad_b_list): lists of gradients for each layer.
-        """
-        if self.loss_name in ("cross_entropy", "crossentropy", "ce"):
-            d_out = cross_entropy_grad(y_true, y_pred)
-        elif self.loss_name in ("mse", "mean_squared_error"):
-            d_out = mse_grad(y_true, y_pred)
-        else:
-            raise ValueError(f"Unsupported loss function: {self.loss_name}")
+            # Backpropagate through layers in reverse order
+            for layer in reversed(self.layers):
+                grad = layer.backward(grad)
+                # FIX: Append to return from LAST layer to FIRST layer as per updated guidelines
+                grad_W_list.append(layer.grad_W)
+                grad_b_list.append(layer.grad_b)
 
-        grad = d_out
-        grad_W_list: List[np.ndarray] = []
-        grad_b_list: List[np.ndarray] = []
-
-        # Backpropagate through layers in reverse order
-        for layer in reversed(self.layers):
-            grad = layer.backward(grad)
-            grad_W_list.insert(0, layer.grad_W)
-            grad_b_list.insert(0, layer.grad_b)
-
-        return grad_W_list, grad_b_list
+            return grad_W_list, grad_b_list
 
     def update_weights(self) -> None:
         """
@@ -320,4 +310,18 @@ class NeuralNetwork:
 
         accuracy = float(np.mean(y_pred_labels == y_true_labels))
         return float(loss), accuracy
+    def get_weights(self) -> List[Tuple[np.ndarray, np.ndarray]]:
+        """Return a list of (W, b) tuples for all layers."""
+        weights = []
+        for layer in self.layers:
+            weights.append((layer.W, layer.b))
+        return weights
+
+    def set_weights(self, weights: List[Tuple[np.ndarray, np.ndarray]]) -> None:
+        """Set weights for all layers from a list of (W, b) tuples."""
+        if len(weights) != len(self.layers):
+            raise ValueError(f"Expected weights for {len(self.layers)} layers, got {len(weights)}")
+        for layer, (W, b) in zip(self.layers, weights):
+            layer.W = W
+            layer.b = b
 

@@ -15,73 +15,43 @@ from utils.data_loader import load_dataset
 
 
 def parse_arguments():
-    """
-    Parse command-line arguments for inference.
+    parser = argparse.ArgumentParser(description="Train/Inference for Neural Network")
 
-    Arguments:
-    - model_path: Path to saved model weights (relative path)
-    - config_path: Path to saved config.json (optional but recommended)
-    - dataset: Dataset to evaluate on
-    - batch_size: Batch size for inference
-    """
-    parser = argparse.ArgumentParser(description="Run inference on test set")
-
-    parser.add_argument(
-        "--model_path",
-        type=str,
-        required=True,
-        help="Relative path to saved model weights (.npy)",
-    )
-    parser.add_argument(
-        "--config_path",
-        type=str,
-        default="config.json",
-        help="Relative path to model configuration (.json)",
-    )
-    parser.add_argument(
-        "-d",
-        "--dataset",
-        type=str,
-        required=True,
-        choices=["mnist", "fashion", "fashion_mnist"],
-        help="Dataset to evaluate on",
-    )
-    parser.add_argument(
-        "-b",
-        "--batch_size",
-        type=int,
-        default=256,
-        help="Batch size for inference",
-    )
+    # Required by Guidelines: Best configuration as defaults
+    parser.add_argument("-d", "--dataset", type=str, default="mnist", choices=["mnist", "fashion", "fashion_mnist"])
+    parser.add_argument("-e", "--epochs", type=int, default=12)
+    parser.add_argument("-b", "--batch_size", type=int, default=64)
+    parser.add_argument("-o", "--optimizer", type=str, default="nadam", 
+                        choices=["sgd", "momentum", "nag", "rmsprop", "adam", "nadam"])
+    parser.add_argument("-lr", "--learning_rate", type=float, default=0.003)
+    parser.add_argument("-wd", "--weight_decay", type=float, default=0.0)
+    parser.add_argument("-nhl", "--num_layers", type=int, default=3)
+    parser.add_argument("-sz", "--hidden_size", type=str, nargs="+", default=["128", "128", "128"])
+    parser.add_argument("-a", "--activation", type=str, default="sigmoid", choices=["relu", "sigmoid", "tanh"])
+    parser.add_argument("-l", "--loss", type=str, default="mse", choices=["cross_entropy", "mse"])
+    parser.add_argument("-wi", "--weight_init", type=str, default="xavier", choices=["random", "xavier", "zeros"])
+    
+    # Revised Guideline additions
+    parser.add_argument("-w_p", "--wandb_project", type=str, default=None)
+    parser.add_argument("--model_path", type=str, default="best_model.npy")
+    parser.add_argument("--config_save_path", type=str, default="config.json")
 
     return parser.parse_args()
 
 
-def load_model(model_path: str, config: Dict[str, Any]) -> NeuralNetwork:
+def load_model_from_disk(model_path: str, args: Any) -> NeuralNetwork:
     """
-    Load trained model from disk.
+    Load trained model from disk as per revised guidelines.
     """
-    # Create dummy args namespace mimicking training args
-    class DummyArgs:
-        pass
-
-    args = DummyArgs()
-    for k, v in config.items():
-        setattr(args, k, v)
-
-    # Initialize a fresh network with same architecture
-    model = NeuralNetwork(
-        args,
-        input_dim=config.get("input_dim", 784),
-        num_classes=config.get("num_classes", 10),
-    )
-
-    # Load saved parameters
-    saved = np.load(model_path, allow_pickle=True).item()
-    for layer, layer_params in zip(model.layers, saved["layers"]):
-        layer.W = layer_params["W"]
-        layer.b = layer_params["b"]
-
+    data = np.load(model_path, allow_pickle=True)
+    # Depending on numpy version, it might be an object array or list
+    if isinstance(data, np.ndarray) and data.shape == ():
+        weights = data.item()
+    else:
+        weights = list(data)
+        
+    model = NeuralNetwork(args, input_dim=784, num_classes=10)
+    model.set_weights(weights)
     return model
 
 
