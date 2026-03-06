@@ -310,18 +310,20 @@ class NeuralNetwork:
 
         accuracy = float(np.mean(y_pred_labels == y_true_labels))
         return float(loss), accuracy
-    def get_weights(self) -> List[Tuple[np.ndarray, np.ndarray]]:
-        """Return a list of (W, b) tuples for all layers."""
+
+    def get_weights(self) -> List[np.ndarray]:
+        """Return a flat list of W and b for all layers."""
         weights = []
         for layer in self.layers:
-            weights.append((layer.W, layer.b))
+            weights.append(layer.W)
+            weights.append(layer.b)
         return weights
 
-    def set_weights(self, weights: List[Tuple[np.ndarray, np.ndarray]]) -> None:
-        """Set weights for all layers from a list of (W, b) tuples."""
-        if len(weights) != len(self.layers):
-            raise ValueError(f"Expected weights for {len(self.layers)} layers, got {len(weights)}")
-        for layer, (W, b) in zip(self.layers, weights):
-            layer.W = W
-            layer.b = b
+    def set_weights(self, weights: List[np.ndarray]) -> None:
+        """Set weights for all layers from a flat list."""
+        if len(weights) != len(self.layers) * 2:
+            raise ValueError(f"Expected weights for {len(self.layers)} layers ({len(self.layers)*2} items), got {len(weights)}")
+        for i, layer in enumerate(self.layers):
+            layer.W = weights[2 * i]
+            layer.b = weights[2 * i + 1]
 

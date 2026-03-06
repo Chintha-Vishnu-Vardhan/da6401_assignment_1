@@ -48,9 +48,9 @@ def load_dataset(
     """
     name = dataset.lower()
     if name == "mnist":
-        mnist_data = fetch_openml("mnist_784", version=1, as_frame=False)
+        mnist_data = fetch_openml("mnist_784", version=1, as_frame=False, parser="liac-arff")
     elif name in ("fashion", "fashion_mnist", "fashion-mnist"):
-        mnist_data = fetch_openml("Fashion-MNIST", version=1, as_frame=False)
+        mnist_data = fetch_openml("Fashion-MNIST", version=1, as_frame=False, parser="liac-arff")
     else:
         raise ValueError(f"Unsupported dataset: {dataset}")
 

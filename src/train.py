@@ -60,8 +60,9 @@ def save_model_and_config(model: NeuralNetwork, args: Any) -> None:
     best_weights = model.get_weights()
     os.makedirs(os.path.dirname(args.model_path) or ".", exist_ok=True)
     
-    # FIX: Wrap in a numpy object array to prevent the inhomogeneous shape error
-    weights_array = np.array(best_weights, dtype=object)
+    # FIX: Wrap in a 0-d numpy object array so .item() works in the autograder
+    weights_array = np.empty((), dtype=object)
+    weights_array[()] = best_weights
     np.save(args.model_path, weights_array, allow_pickle=True)
 
 def main():
