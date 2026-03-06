@@ -36,11 +36,20 @@ def parse_arguments():
     parser.add_argument("-wi",  "--weight_init",    type=str,   default="xavier",
                         choices=["random", "xavier", "zeros"])
     parser.add_argument("-w_p", "--wandb_project",  type=str,   default=None)
+    
     # Autograder expects best_model.npy inside src/
     parser.add_argument("--model_path",             type=str,   default="src/best_model.npy")
     parser.add_argument("--config_save_path",       type=str,   default="src/best_config.json")
+    # Added alias to prevent autograder argument crash
+    parser.add_argument("--config_path",            type=str,   default=None)
 
-    return parser.parse_args()
+    args = parser.parse_args()
+    
+    # Map autograder's config_path back to your variable
+    if args.config_path is not None:
+        args.config_save_path = args.config_path
+        
+    return args
 
 
 def maybe_init_wandb(args: Any):

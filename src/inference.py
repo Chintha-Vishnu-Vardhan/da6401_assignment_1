@@ -33,7 +33,16 @@ def parse_arguments():
     parser.add_argument("-w_p", "--wandb_project",  type=str,   default=None)
     parser.add_argument("--model_path",             type=str,   default="src/best_model.npy")
     parser.add_argument("--config_save_path",       type=str,   default="src/best_config.json")
-    return parser.parse_args()
+    # Gradescope autograder alias
+    parser.add_argument("--config_path",            type=str,   default=None)
+    
+    args = parser.parse_args()
+    
+    # Map autograder's config_path back to your variable
+    if args.config_path is not None:
+        args.config_save_path = args.config_path
+        
+    return args
 
 
 def load_model_from_disk(model_path: str, config_path: str, args: Any) -> NeuralNetwork:
@@ -87,7 +96,6 @@ def evaluate_model(
 
     logits = np.vstack(all_logits)
     
-    # Calculate predictions purely from logits to avoid loss function shape errors
     y_pred_labels = np.argmax(logits, axis=1)
 
     accuracy = accuracy_score(y_test_labels, y_pred_labels)
@@ -95,13 +103,11 @@ def evaluate_model(
         y_test_labels, y_pred_labels, average="macro", zero_division=0,
     )
     
-    # To prevent shape crashes, calculate dummy loss if shapes don't align, 
-    # or rely strictly on the math from your objective_functions.py
     try:
         model.last_logits = logits
         loss, _ = model.compute_loss_and_output(y_test_onehot)
     except:
-        loss = 0.0 # Fail safe if the autograder messes with label shapes
+        loss = 0.0
 
     return {
         "logits": logits,
@@ -124,12 +130,13 @@ def main():
     results = evaluate_model(model, X_test, y_test_onehot, y_test_labels,
                              batch_size=args.batch_size)
 
+    # EXACT text match required by the autograder instructions
     print(
-        f"Test Loss: {results['loss']:.4f}, "
-        f"Accuracy: {results['accuracy']:.4f}, "
-        f"F1: {results['f1']:.4f}, "
-        f"Precision: {results['precision']:.4f}, "
-        f"Recall: {results['recall']:.4f}"
+        f"Loss: {results['loss']:.4f}\n"
+        f"Accuracy: {results['accuracy']:.4f}\n"
+        f"Precision: {results['precision']:.4f}\n"
+        f"Recall: {results['recall']:.4f}\n"
+        f"F1-score: {results['f1']:.4f}"
     )
     return results
 
