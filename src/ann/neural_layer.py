@@ -51,11 +51,11 @@ class NeuralLayer:
             W = np.zeros((self.input_dim, self.output_dim), dtype=np.float64)
         elif self.weight_init == "random":
             # FIX: Use normal distribution
-            W = np.random.randn(self.input_dim, self.output_dim) * 0.01
+            W = self.rng.standard_normal((self.input_dim, self.output_dim)) * 0.01
         else:  # "xavier"
             # FIX: Use normal distribution with standard deviation
             std = np.sqrt(2.0 / (self.input_dim + self.output_dim))
-            W = np.random.randn(self.input_dim, self.output_dim) * std
+            W = self.rng.standard_normal((self.input_dim, self.output_dim)) * std
 
         # FIX: Change bias to 2D array of shape (1, output_dim)
         b = np.zeros((1, self.output_dim), dtype=np.float64)

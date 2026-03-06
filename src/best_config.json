@@ -12,9 +12,10 @@
         128
     ],
     "activation": "relu",
-    "loss": "mse",
+    "loss": "cross_entropy",
     "weight_init": "xavier",
     "wandb_project": null,
     "model_path": "src/best_model.npy",
-    "config_save_path": "src/config.json"
+    "config_save_path": "src/best_config.json",
+    "config_path": null
 }
