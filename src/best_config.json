@@ -1,9 +1,9 @@
 {
     "dataset": "mnist",
-    "epochs": 10,
+    "epochs": 50,
     "batch_size": 128,
-    "optimizer": "momentum",
-    "learning_rate": 0.01,
+    "optimizer": "rmsprop",
+    "learning_rate": 0.001,
     "weight_decay": 0.0,
     "num_layers": 3,
     "hidden_size": [
@@ -12,9 +12,9 @@
         128
     ],
     "activation": "relu",
-    "loss": "cross_entropy",
+    "loss": "mse",
     "weight_init": "xavier",
     "wandb_project": null,
     "model_path": "src/best_model.npy",
-    "config_save_path": "src/best_config.json"
+    "config_save_path": "src/config.json"
 }
