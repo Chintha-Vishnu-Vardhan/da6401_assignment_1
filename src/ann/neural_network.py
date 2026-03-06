@@ -153,14 +153,14 @@ class NeuralNetwork:
             grad_W_list.append(layer.grad_W)
             grad_b_list.append(layer.grad_b)
 
-        # FIX: Gradescope expects numpy object arrays, not Python lists
+        # Gradescope expects numpy object arrays
         grad_w_arr = np.empty(len(grad_W_list), dtype=object)
         grad_b_arr = np.empty(len(grad_b_list), dtype=object)
-        
+
         for i, (gw, gb) in enumerate(zip(grad_W_list, grad_b_list)):
             grad_w_arr[i] = gw
             grad_b_arr[i] = gb
-            
+
         return grad_w_arr, grad_b_arr
 
     def update_weights(self) -> None:
@@ -182,7 +182,6 @@ class NeuralNetwork:
             "val_loss": [], "val_accuracy": [],
         }
 
-        # --- NEW: Track best weights ---
         best_val_acc = -1.0
         best_weights = None
 
@@ -226,11 +225,11 @@ class NeuralNetwork:
                 val_loss, val_acc = self.evaluate(X_val, y_val)
                 history["val_loss"].append(val_loss)
                 history["val_accuracy"].append(val_acc)
-                
-                # --- NEW: Save a copy of the weights if this is the best epoch ---
+
                 if val_acc > best_val_acc:
                     best_val_acc = val_acc
-                    best_weights = [(W.copy(), b.copy()) for W, b in self.get_weights()]
+                    # Save as dict for compatibility
+                    best_weights = self.get_weights()
 
             if grad_norms_layer0:
                 history.setdefault("grad_norm_layer0", []).append(float(np.mean(grad_norms_layer0)))
@@ -252,7 +251,12 @@ class NeuralNetwork:
                     log_data["activation_sparsity_layer0"] = history["activation_sparsity_layer0"][-1]
                 wandb_run.log(log_data)
 
-        # --- NEW: Restore the best weights before finishing ---
+            print(f"Epoch [{epoch+1}/{epochs}]  "
+                  f"train_loss={train_loss:.4f}  train_acc={train_acc:.4f}"
+                  + (f"  val_loss={history['val_loss'][-1]:.4f}"
+                     f"  val_acc={history['val_accuracy'][-1]:.4f}"
+                     if X_val is not None else ""))
+
         if best_weights is not None:
             self.set_weights(best_weights)
             print(f"Restored best weights with Val Accuracy: {best_val_acc:.4f}")
@@ -275,52 +279,53 @@ class NeuralNetwork:
         accuracy = float(np.mean(y_pred_labels == y_true_labels))
         return float(loss), accuracy
 
-    def get_weights(self) -> List[Tuple[np.ndarray, np.ndarray]]:
-        """Return a list of (W, b) tuples for all layers."""
-        return [(layer.W, layer.b) for layer in self.layers]
+    # ── FIX: get_weights returns dict so np.load(...).item() gives a dict ──
+    def get_weights(self) -> Dict[str, np.ndarray]:
+        """
+        Return weights as a dict: {'W0': W, 'b0': b, 'W1': W, 'b1': b, ...}
+
+        This format is required by the autograder:
+            data = np.load('best_model.npy', allow_pickle=True).item()
+            model.set_weights(data)  # expects dict
+        """
+        d = {}
+        for i, layer in enumerate(self.layers):
+            d[f'W{i}'] = layer.W.copy()
+            d[f'b{i}'] = layer.b.copy()
+        return d
 
     def set_weights(self, weights) -> None:
         """
         Set weights for all layers.
 
-        Handles all autograder formats:
-          1. List of (W, b) tuples:       [(W0,b0), (W1,b1), ...]   length == n
-          2. Flat arrays only:            [W0, b0, W1, b1, ...]     length == 2*n
-          3. Named flat (strings+arrays): ['W0',W0,'b0',b0, ...]    length == 4*n
-          4. Dict:                        {'W0': W0, 'b0': b0, ...}
+        Handles all formats:
+          1. Dict:                        {'W0': W0, 'b0': b0, ...}
+          2. List of (W, b) tuples:       [(W0,b0), (W1,b1), ...]
+          3. Flat arrays:                 [W0, b0, W1, b1, ...]
         """
         n = len(self.layers)
 
-        # ── Format 4: dict ────────────────────────────────────────────────
+        # ── Format 1: dict ────────────────────────────────────────────────
         if isinstance(weights, dict):
-            pairs = []
-            for i in range(n):
-                W = np.array(weights[f"W{i}"], dtype=np.float64)
-                b = np.array(weights[f"b{i}"], dtype=np.float64)
-                pairs.append((W, b))
-            weights = pairs
+            for i, layer in enumerate(self.layers):
+                layer.W = np.array(weights[f"W{i}"], dtype=np.float64)
+                layer.b = np.array(weights[f"b{i}"], dtype=np.float64)
+            return
 
-        else:
-            weights = list(weights)
+        weights = list(weights)
 
-            # ── Format 3: named flat — strip string labels ─────────────────
-            # e.g. ['W0', W_array, 'b0', b_array, 'W1', ...]
-            arrays_only = [w for w in weights if not isinstance(w, str)]
-            if len(arrays_only) != len(weights):
-                # strings were present; keep only the numeric arrays
-                weights = arrays_only
+        # Strip string labels if present
+        arrays_only = [w for w in weights if not isinstance(w, str)]
+        if len(arrays_only) != len(weights):
+            weights = arrays_only
 
-            # ── Format 2: flat [W0, b0, W1, b1, ...] ─────────────────────
-            if len(weights) == 2 * n:
-                weights = [(weights[2 * i], weights[2 * i + 1]) for i in range(n)]
+        # ── Format 3: flat [W0, b0, W1, b1, ...] ─────────────────────────
+        if len(weights) == 2 * n:
+            weights = [(weights[2 * i], weights[2 * i + 1]) for i in range(n)]
 
-            # ── Format 1: already [(W,b), ...] ───────────────────────────
-            # (no conversion needed)
-
+        # ── Format 2: list of (W, b) tuples ──────────────────────────────
         if len(weights) != n:
-            raise ValueError(
-                f"Expected weights for {n} layers, got {len(weights)}"
-            )
+            raise ValueError(f"Expected weights for {n} layers, got {len(weights)}")
 
         for layer, (W, b) in zip(self.layers, weights):
             layer.W = np.array(W, dtype=np.float64)

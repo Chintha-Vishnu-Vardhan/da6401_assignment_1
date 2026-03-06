@@ -17,67 +17,78 @@ from utils.data_loader import load_dataset
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Inference for Neural Network")
-    # Default arguments (will be overridden by config.json)
-    parser.add_argument("-d", "--dataset", type=str, default="mnist")
-    parser.add_argument("-e", "--epochs", type=int, default=10)
-    parser.add_argument("-b", "--batch_size", type=int, default=128)
-    parser.add_argument("-o", "--optimizer", type=str, default="rmsprop") 
-    parser.add_argument("-lr", "--learning_rate", type=float, default=0.001)
-    parser.add_argument("-wd", "--weight_decay", type=float, default=0.0)
-    parser.add_argument("-nhl", "--num_layers", type=int, default=3)
-    parser.add_argument("-sz", "--hidden_size", type=str, nargs="+", default=["128", "128", "128"])
-    parser.add_argument("-a", "--activation", type=str, default="relu")
-    parser.add_argument("-l", "--loss", type=str, default="cross_entropy")
-    parser.add_argument("-wi", "--weight_init", type=str, default="xavier")
-    
-    parser.add_argument("--model_path", type=str, default="src/best_model.npy")
-    parser.add_argument("--config_save_path", type=str, default="src/config.json")
+    # Default values match best_config.json — override with CLI as needed
+    parser.add_argument("-d",   "--dataset",       type=str,   default="mnist")
+    parser.add_argument("-e",   "--epochs",         type=int,   default=10)
+    parser.add_argument("-b",   "--batch_size",     type=int,   default=128)
+    parser.add_argument("-o",   "--optimizer",      type=str,   default="momentum")
+    parser.add_argument("-lr",  "--learning_rate",  type=float, default=0.01)
+    parser.add_argument("-wd",  "--weight_decay",   type=float, default=0.0)
+    parser.add_argument("-nhl", "--num_layers",     type=int,   default=3)
+    parser.add_argument("-sz",  "--hidden_size",    type=str,   nargs="+",
+                        default=["128", "128", "128"])
+    parser.add_argument("-a",   "--activation",     type=str,   default="relu")
+    parser.add_argument("-l",   "--loss",           type=str,   default="cross_entropy")
+    parser.add_argument("-wi",  "--weight_init",    type=str,   default="xavier")
+    parser.add_argument("-w_p", "--wandb_project",  type=str,   default=None)
+    parser.add_argument("--model_path",             type=str,   default="src/best_model.npy")
+    parser.add_argument("--config_save_path",       type=str,   default="src/best_config.json")
     return parser.parse_args()
 
 
 def load_model_from_disk(model_path: str, config_path: str, args: Any) -> NeuralNetwork:
-    """Load config overrides and trained model from disk."""
-    
-    # 1. Override CLI args with the actual config used during training
+    """Load config overrides and trained model weights from disk."""
+
+    # 1. Override args with the config used during training
     if os.path.exists(config_path):
         with open(config_path, "r", encoding="utf-8") as f:
             saved_config = json.load(f)
         for key, value in saved_config.items():
             setattr(args, key, value)
-    
-    # 2. Safely parse hidden_size back into a list of integers
-    if isinstance(args.hidden_size, str):
-         args.hidden_size = [int(x.strip("[] ")) for x in args.hidden_size.split(",")]
-    elif len(args.hidden_size) > 0 and isinstance(args.hidden_size[0], str):
-        val = args.hidden_size[0]
-        if val.startswith("["):
-            args.hidden_size = [int(x) for x in val.replace("[", "").replace("]", "").split(",")]
-        else:
-            args.hidden_size = [int(x) for x in args.hidden_size]
 
-    # 3. Load weights
-    data = np.load(model_path, allow_pickle=True).item()
-        
+    # 2. Normalise hidden_size to list of ints
+    hs = getattr(args, "hidden_size", [128, 128, 128])
+    if isinstance(hs, str):
+        hs = [int(x.strip("[] ")) for x in hs.split(",")]
+    elif isinstance(hs, list) and len(hs) > 0 and isinstance(hs[0], str):
+        val = hs[0]
+        if val.startswith("["):
+            hs = [int(x) for x in val.replace("[", "").replace("]", "").split(",")]
+        else:
+            hs = [int(x) for x in hs]
+    args.hidden_size = hs
+
+    # 3. Load weights — np.load(...).item() gives back the dict
+    raw = np.load(model_path, allow_pickle=True)
+    # Handle both plain dict saves and 0-d object-array saves
+    if raw.ndim == 0:
+        weight_data = raw.item()
+    else:
+        weight_data = raw
+
     model = NeuralNetwork(args, input_dim=784, num_classes=10)
-    model.set_weights(data)
+    model.set_weights(weight_data)
     return model
 
 
-def evaluate_model(model: NeuralNetwork, X_test: np.ndarray, y_test_onehot: np.ndarray, y_test_labels: np.ndarray, batch_size: int = 512):
+def evaluate_model(
+    model: NeuralNetwork,
+    X_test: np.ndarray,
+    y_test_onehot: np.ndarray,
+    y_test_labels: np.ndarray,
+    batch_size: int = 512,
+):
     n = X_test.shape[0]
     all_logits = []
-    
-    # Batched inference to prevent Memory errors on Gradescope
+
     for start in range(0, n, batch_size):
         end = start + batch_size
-        X_batch = X_test[start:end]
-        all_logits.append(model.forward(X_batch))
-        
+        all_logits.append(model.forward(X_test[start:end]))
+
     logits = np.vstack(all_logits)
     model.last_logits = logits
     loss, probs = model.compute_loss_and_output(y_test_onehot)
 
-    # argmax of logits provides the exact same classification as argmax of probabilities
     y_pred_labels = np.argmax(logits, axis=1)
 
     accuracy = accuracy_score(y_test_labels, y_pred_labels)
@@ -98,13 +109,13 @@ def evaluate_model(model: NeuralNetwork, X_test: np.ndarray, y_test_onehot: np.n
 def main():
     args = parse_arguments()
 
-    # Build and load model dynamically using the config.json
     model = load_model_from_disk(args.model_path, args.config_save_path, args)
 
-    # Load test data
-    _, _, _, _, X_test, y_test_onehot, y_test_labels = load_dataset(args.dataset)
+    data = load_dataset(args.dataset)
+    X_test, y_test_onehot, y_test_labels = data[4], data[5], data[6]
 
-    results = evaluate_model(model, X_test, y_test_onehot, y_test_labels)
+    results = evaluate_model(model, X_test, y_test_onehot, y_test_labels,
+                             batch_size=args.batch_size)
 
     print(
         f"Test Loss: {results['loss']:.4f}, "
@@ -113,6 +124,8 @@ def main():
         f"Precision: {results['precision']:.4f}, "
         f"Recall: {results['recall']:.4f}"
     )
+    return results
+
 
 if __name__ == "__main__":
     main()

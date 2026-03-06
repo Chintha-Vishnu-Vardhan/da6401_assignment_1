@@ -11,12 +11,11 @@ from .activations import softmax
 
 
 def mse_loss(y_true: np.ndarray, y_pred: np.ndarray) -> float:
-    # Match reference exact math
     return np.mean((y_pred - y_true) ** 2)
+
 
 def mse_grad(y_true: np.ndarray, y_pred: np.ndarray) -> np.ndarray:
     batch_size = y_true.shape[0]
-    # Apply batch size division and factor of 2 here
     return 2.0 * (y_pred - y_true) / batch_size
 
 
@@ -54,7 +53,12 @@ def cross_entropy_grad(y_true: np.ndarray, probs: np.ndarray) -> np.ndarray:
         probs: Softmax probabilities, shape (batch_size, num_classes)
 
     Returns:
-        Gradient w.r.t. logits, per-sample (batch averaging is done in layers).
+        Gradient w.r.t. logits, averaged over the batch.
+
+    IMPORTANT: Must be (probs - y_true) / batch_size — not probs - y_true/batch_size.
+    The parentheses matter: the earlier code had a precedence bug that made
+    the effective learning rate ~batch_size times smaller, killing training.
     """
     batch_size = y_true.shape[0]
-    return probs - y_true / batch_size
+    # FIX: was `probs - y_true / batch_size` (wrong — only divides y_true)
+    return (probs - y_true) / batch_size

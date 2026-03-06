@@ -22,9 +22,9 @@ def parse_arguments():
                         choices=["mnist", "fashion", "fashion_mnist"])
     parser.add_argument("-e",   "--epochs",         type=int,   default=10)
     parser.add_argument("-b",   "--batch_size",     type=int,   default=128)
-    parser.add_argument("-o",   "--optimizer",      type=str,   default="rmsprop",
+    parser.add_argument("-o",   "--optimizer",      type=str,   default="momentum",
                         choices=["sgd", "momentum", "nag", "rmsprop"])
-    parser.add_argument("-lr",  "--learning_rate",  type=float, default=0.001)
+    parser.add_argument("-lr",  "--learning_rate",  type=float, default=0.01)
     parser.add_argument("-wd",  "--weight_decay",   type=float, default=0.0)
     parser.add_argument("-nhl", "--num_layers",     type=int,   default=3)
     parser.add_argument("-sz",  "--hidden_size",    type=str,   nargs="+",
@@ -36,8 +36,9 @@ def parse_arguments():
     parser.add_argument("-wi",  "--weight_init",    type=str,   default="xavier",
                         choices=["random", "xavier", "zeros"])
     parser.add_argument("-w_p", "--wandb_project",  type=str,   default=None)
+    # Autograder expects best_model.npy inside src/
     parser.add_argument("--model_path",             type=str,   default="src/best_model.npy")
-    parser.add_argument("--config_save_path",       type=str,   default="src/config.json")
+    parser.add_argument("--config_save_path",       type=str,   default="src/best_config.json")
 
     return parser.parse_args()
 
@@ -54,20 +55,30 @@ def maybe_init_wandb(args: Any):
 
 
 def save_model_and_config(model: NeuralNetwork, args: Any) -> None:
+    """
+    Save trained weights and config to disk.
+
+    Weights are saved as a plain dict {'W0':..., 'b0':...} so that:
+        data = np.load('best_model.npy', allow_pickle=True).item()
+    returns a dict directly — which is what the autograder expects.
+    """
     # ── Config ──────────────────────────────────────────────────────────────
-    config = vars(args)
-    os.makedirs(os.path.dirname(args.config_save_path) or ".", exist_ok=True)
+    config = vars(args).copy()
+    # Ensure hidden_size is JSON-serialisable (list of ints)
+    if not isinstance(config.get("hidden_size"), list):
+        config["hidden_size"] = list(config["hidden_size"])
+    config_dir = os.path.dirname(args.config_save_path) or "."
+    os.makedirs(config_dir, exist_ok=True)
     with open(args.config_save_path, "w", encoding="utf-8") as f:
         json.dump(config, f, indent=4)
+    print(f"Config saved to {args.config_save_path}")
 
-    # ── Weights ─────────────────────────────────────────────────────────────
-    # Save as a 0-d object array so that np.load(...).item() returns the
-    # original list-of-tuples, and list(np.load(...)) also works via set_weights.
-    best_weights = model.get_weights()          # list of (W, b) tuples
-    container = np.empty((), dtype=object)      # 0-d object array
-    container[()] = best_weights
-    os.makedirs(os.path.dirname(args.model_path) or ".", exist_ok=True)
-    np.save(args.model_path, container)
+    # ── Weights — save as dict directly (NOT wrapped in a 0-d container) ──
+    best_weights = model.get_weights()   # returns {'W0':..., 'b0':..., ...}
+    weights_dir = os.path.dirname(args.model_path) or "."
+    os.makedirs(weights_dir, exist_ok=True)
+    np.save(args.model_path, best_weights)
+    print(f"Weights saved to {args.model_path}")
 
 
 def main():
