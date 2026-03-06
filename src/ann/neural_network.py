@@ -29,6 +29,7 @@ class NeuralNetwork:
         num_classes: int = 10,
         rng: Optional[np.random.Generator] = None,
     ):
+        self.cli_args = cli_args 
         self.rng = rng or np.random.default_rng()
 
         activation = getattr(cli_args, "activation", "relu")
@@ -296,37 +297,46 @@ class NeuralNetwork:
 
     def set_weights(self, weights) -> None:
         """
-        Set weights for all layers.
-
-        Handles all formats:
-          1. Dict:                        {'W0': W0, 'b0': b0, ...}
-          2. List of (W, b) tuples:       [(W0,b0), (W1,b1), ...]
-          3. Flat arrays:                 [W0, b0, W1, b1, ...]
+        Set weights for all layers. Dynamically rebuilds layers if the 
+        injected weights don't match the current initialized architecture.
         """
-        n = len(self.layers)
-
-        # ── Format 1: dict ────────────────────────────────────────────────
         if isinstance(weights, dict):
+            # Count how many layers are in the weight dict
+            n_layers = sum(1 for k in weights if k.startswith("W"))
+            if n_layers == 0:
+                return
+            
+            # Check if architecture needs to be rebuilt
+            needs_rebuild = (n_layers != len(self.layers))
+            if not needs_rebuild:
+                for i, layer in enumerate(self.layers):
+                    if weights[f"W{i}"].shape != layer.W.shape:
+                        needs_rebuild = True
+                        break
+            
+            if needs_rebuild:
+                # Rebuild layers to exactly match the weight dict shapes
+                activation = getattr(self.cli_args, "activation", self.activation_name)
+                weight_init = getattr(self.cli_args, "weight_init", "xavier")
+                self.layers = []
+                for i in range(n_layers):
+                    W = weights[f"W{i}"]
+                    in_size, out_size = W.shape
+                    is_last = (i == n_layers - 1)
+                    act = None if is_last else activation
+                    self.layers.append(
+                        NeuralLayer(
+                            input_dim=in_size,
+                            output_dim=out_size,
+                            activation=act,
+                            weight_init=weight_init,
+                            rng=self.rng
+                        )
+                    )
+
+            # Apply the weights
             for i, layer in enumerate(self.layers):
                 layer.W = np.array(weights[f"W{i}"], dtype=np.float64)
                 layer.b = np.array(weights[f"b{i}"], dtype=np.float64)
             return
 
-        weights = list(weights)
-
-        # Strip string labels if present
-        arrays_only = [w for w in weights if not isinstance(w, str)]
-        if len(arrays_only) != len(weights):
-            weights = arrays_only
-
-        # ── Format 3: flat [W0, b0, W1, b1, ...] ─────────────────────────
-        if len(weights) == 2 * n:
-            weights = [(weights[2 * i], weights[2 * i + 1]) for i in range(n)]
-
-        # ── Format 2: list of (W, b) tuples ──────────────────────────────
-        if len(weights) != n:
-            raise ValueError(f"Expected weights for {n} layers, got {len(weights)}")
-
-        for layer, (W, b) in zip(self.layers, weights):
-            layer.W = np.array(W, dtype=np.float64)
-            layer.b = np.array(b, dtype=np.float64)
