@@ -9,6 +9,7 @@
 
 - **W&B Report:** https://wandb.ai/chinthavishnuvardhan4-indian-institute-of-technology-madras/DA6401__Intro_to_DL_Assignment1/reports/DA6401-Assignment-1-Multi-Layer-Perceptron--VmlldzoxNjEwNTQ1MA?accessToken=qnw35kh50yseg0ww5gzzfuxqhgmp4zmao8jj5vs8rzq9oqvlgr4tyngf65j1qwg7
 - **GitHub:** https://github.com/Chintha-Vishnu-Vardhan/da6401_assignment_1
+- W&B Project - https://wandb.ai/chinthavishnuvardhan4-indian-institute-of-technology-madras/DA6401__Intro_to_DL_Assignment1?nw=nwuserchinthavishnuvardhan4
 
 ---
 
