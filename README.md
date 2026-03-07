@@ -1,4 +1,4 @@
-# DA6401 Assignment 1 — Multi-Layer Perceptron from Scratch
+# DA6401 Assignment 1 - Multi-Layer Perceptron from Scratch
 
 **Roll No:** CE23B005  
 **Name:** Chintha Vishnu Vardhan  
@@ -13,7 +13,7 @@
 
 ---
 
-## What this is
+## Overview
 
 This is a fully hand-coded multi-layer perceptron using only NumPy — no PyTorch, no TensorFlow. The assignment asked us to build backprop from scratch, implement multiple optimizers, and run experiments on MNIST and Fashion-MNIST. Training, inference, weight saving and loading all work through command-line scripts.
 
@@ -42,8 +42,6 @@ da6401_assignment_1/
 │   ├── best_model.npy               # saved best weights (dict format)
 │   └── best_config.json             # hyperconfig that produced best_model.npy
 │
-├── scripts/                         # experiment scripts (2.3 – 2.10)
-├── sweep_config.yaml                # W&B Bayesian sweep config
 ├── requirements.txt
 └── README.md
 ```
