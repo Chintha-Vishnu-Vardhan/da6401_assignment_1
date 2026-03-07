@@ -100,24 +100,31 @@ class NeuralNetwork:
         self.last_logits = out
         return out
 
-    def compute_loss_and_output(
-        self,
-        y_true: np.ndarray,
-    ) -> Tuple[float, np.ndarray]:
+    def compute_loss_and_output(self,y_true: np.ndarray):
+
         if self.last_logits is None:
             raise RuntimeError("Must call forward() before computing loss.")
 
         logits = self.last_logits
+        m = logits.shape[0]
+        n = self.num_classes
 
-        if self.loss_name in ("cross_entropy", "crossentropy", "ce"):
-            loss, probs = cross_entropy_loss(y_true, logits)
+        if y_true.ndim == 1 or (y_true.ndim == 2 and y_true.shape[1] == 1):
+            y_int = y_true.flatten().astype(int)
+            y_onehot = np.zeros((m,n))
+            y_onehot[np.arange(m),y_int] = 1.0
+        else:
+            y_onehot = y_true
+
+        if self.loss_name in ("cross_entropy","crossentropy","ce"):
+            loss,probs = cross_entropy_loss(y_onehot,logits)
             self.last_probs = probs
-            return loss, probs
+            return loss,probs
 
-        if self.loss_name in ("mse", "mean_squared_error"):
+        if self.loss_name in ("mse","mean_squared_error"):
             preds = logits
-            loss = mse_loss(y_true, preds)
-            return loss, preds
+            loss = mse_loss(y_onehot,preds)
+            return loss,preds
 
         raise ValueError(f"Unsupported loss function: {self.loss_name}")
 
@@ -264,21 +271,25 @@ class NeuralNetwork:
 
         return history
 
-    def evaluate(
-        self,
-        X: np.ndarray,
-        y: np.ndarray,
-    ) -> Tuple[float, float]:
+    def evaluate(self,X: np.ndarray,y: np.ndarray):
+
         logits = self.forward(X)
-        loss, y_pred_for_loss = self.compute_loss_and_output(y)
-        y_true_labels = np.argmax(y, axis=1)
-        if self.loss_name in ("cross_entropy", "crossentropy", "ce"):
-            y_pred_labels = np.argmax(self.last_probs, axis=1)
+        loss,y_pred_for_loss = self.compute_loss_and_output(y)
+
+        if y.ndim == 2:
+            y_true_labels = np.argmax(y,axis=1)
         else:
-            y_pred_labels = np.argmax(y_pred_for_loss, axis=1)
+            y_true_labels = y
+
+        if self.loss_name in ("cross_entropy","crossentropy","ce"):
+            probs = self.last_probs if self.last_probs is not None else y_pred_for_loss
+            y_pred_labels = np.argmax(probs,axis=1)
+        else:
+            y_pred_labels = np.argmax(y_pred_for_loss,axis=1)
 
         accuracy = float(np.mean(y_pred_labels == y_true_labels))
-        return float(loss), accuracy
+
+        return float(loss),accuracy
 
     # ── FIX: get_weights returns dict so np.load(...).item() gives a dict ──
     def get_weights(self) -> Dict[str, np.ndarray]:

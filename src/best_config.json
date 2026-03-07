@@ -1,9 +1,9 @@
 {
     "dataset": "mnist",
-    "epochs": 50,
+    "epochs": 20,
     "batch_size": 128,
-    "optimizer": "rmsprop",
-    "learning_rate": 0.001,
+    "optimizer": "momentum",
+    "learning_rate": 0.01,
     "weight_decay": 0.0,
     "num_layers": 3,
     "hidden_size": [

@@ -17,120 +17,144 @@ from utils.data_loader import load_dataset
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Inference for Neural Network")
-    # Default values match best_config.json — override with CLI as needed
-    parser.add_argument("-d",   "--dataset",       type=str,   default="mnist")
-    parser.add_argument("-e",   "--epochs",         type=int,   default=10)
-    parser.add_argument("-b",   "--batch_size",     type=int,   default=128)
-    parser.add_argument("-o",   "--optimizer",      type=str,   default="momentum")
-    parser.add_argument("-lr",  "--learning_rate",  type=float, default=0.01)
-    parser.add_argument("-wd",  "--weight_decay",   type=float, default=0.0)
-    parser.add_argument("-nhl", "--num_layers",     type=int,   default=3)
-    parser.add_argument("-sz",  "--hidden_size",    type=str,   nargs="+",
-                        default=["128", "128", "128"])
-    parser.add_argument("-a",   "--activation",     type=str,   default="relu")
-    parser.add_argument("-l",   "--loss",           type=str,   default="cross_entropy")
-    parser.add_argument("-wi",  "--weight_init",    type=str,   default="xavier")
-    parser.add_argument("-w_p", "--wandb_project",  type=str,   default=None)
-    parser.add_argument("--model_path",             type=str,   default="src/best_model.npy")
-    parser.add_argument("--config_save_path",       type=str,   default="src/best_config.json")
-    # Gradescope autograder alias
-    parser.add_argument("--config_path",            type=str,   default=None)
-    
+
+    parser.add_argument("-d","--dataset",type=str,default="mnist")
+
+    parser.add_argument("-e","--epochs",type=int,default=10)
+    parser.add_argument("-b","--batch_size",type=int,default=128)
+
+    parser.add_argument("-o","--optimizer",type=str,default="momentum")
+    parser.add_argument("-lr","--learning_rate",type=float,default=0.01)
+    parser.add_argument("-wd","--weight_decay",type=float,default=0.0)
+
+    parser.add_argument("-nhl","--num_layers",type=int,default=3)
+    parser.add_argument("-sz","--hidden_size",type=str,nargs="+",
+                        default=["128","128","128"])
+
+    parser.add_argument("-a","--activation",type=str,default="relu")
+    parser.add_argument("-l","--loss",type=str,default="cross_entropy")
+    parser.add_argument("-wi","--weight_init",type=str,default="xavier")
+
+    parser.add_argument("-w_p","--wandb_project",type=str,default=None)
+
+    parser.add_argument("--model_path",type=str,default="src/best_model.npy")
+    parser.add_argument("--config_save_path",type=str,default="src/best_config.json")
+
+    parser.add_argument("--config_path",type=str,default=None)
+
     args = parser.parse_args()
-    
-    # Map autograder's config_path back to your variable
+
     if args.config_path is not None:
         args.config_save_path = args.config_path
-        
+
     return args
 
 
-def load_model_from_disk(model_path: str, config_path: str, args: Any) -> NeuralNetwork:
-    """Load config overrides and trained model weights from disk."""
+def normalize_hidden_sizes(args):
 
-    # 1. Override args with the config used during training
-    if os.path.exists(config_path):
-        with open(config_path, "r", encoding="utf-8") as f:
-            saved_config = json.load(f)
-        for key, value in saved_config.items():
-            setattr(args, key, value)
+    hs = getattr(args,"hidden_size",[128,128,128])
 
-    # 2. Normalise hidden_size to list of ints
-    hs = getattr(args, "hidden_size", [128, 128, 128])
-    if isinstance(hs, str):
-        hs = [int(x.strip("[] ")) for x in hs.split(",")]
-    elif isinstance(hs, list) and len(hs) > 0 and isinstance(hs[0], str):
-        val = hs[0]
-        if val.startswith("["):
-            hs = [int(x) for x in val.replace("[", "").replace("]", "").split(",")]
-        else:
-            hs = [int(x) for x in hs]
+    if isinstance(hs,str):
+        hs = [int(x) for x in hs.replace("[","").replace("]","").split(",")]
+
+    elif isinstance(hs,list):
+        hs = [int(x) for x in hs]
+
     args.hidden_size = hs
 
-    # 3. Load weights — np.load(...).item() gives back the dict
-    raw = np.load(model_path, allow_pickle=True)
-    # Handle both plain dict saves and 0-d object-array saves
-    if raw.ndim == 0:
-        weight_data = raw.item()
-    else:
-        weight_data = raw
+    return args
 
-    model = NeuralNetwork(args, input_dim=784, num_classes=10)
-    model.set_weights(weight_data)
+
+def load_model_from_disk(model_path:str,config_path:str,args:Any)->NeuralNetwork:
+
+    if os.path.exists(config_path):
+        with open(config_path,"r",encoding="utf-8") as f:
+            saved_config = json.load(f)
+
+        for key,value in saved_config.items():
+            setattr(args,key,value)
+
+    args = normalize_hidden_sizes(args)
+
+    weights = np.load(model_path,allow_pickle=True)
+
+    if isinstance(weights,np.ndarray) and weights.ndim==0:
+        weights = weights.item()
+
+    model = NeuralNetwork(args,input_dim=784,num_classes=10)
+    model.set_weights(weights)
+
     return model
 
 
-def evaluate_model(
-    model: NeuralNetwork,
-    X_test: np.ndarray,
-    y_test_onehot: np.ndarray,
-    y_test_labels: np.ndarray,
-    batch_size: int = 512,
-):
+def evaluate_model(model:NeuralNetwork,
+                   X_test:np.ndarray,
+                   y_test,
+                   batch_size:int=512):
+
     n = X_test.shape[0]
-    all_logits = []
+    logits_list = []
 
-    for start in range(0, n, batch_size):
-        end = start + batch_size
-        all_logits.append(model.forward(X_test[start:end]))
+    for start in range(0,n,batch_size):
+        end = start+batch_size
+        logits_list.append(model.forward(X_test[start:end]))
 
-    logits = np.vstack(all_logits)
-    
-    y_pred_labels = np.argmax(logits, axis=1)
+    logits = np.vstack(logits_list)
 
-    accuracy = accuracy_score(y_test_labels, y_pred_labels)
-    precision, recall, f1, _ = precision_recall_fscore_support(
-        y_test_labels, y_pred_labels, average="macro", zero_division=0,
+    y_pred = np.argmax(logits,axis=1)
+
+    if y_test.ndim==2:
+        y_true = np.argmax(y_test,axis=1)
+    else:
+        y_true = y_test
+
+    accuracy = accuracy_score(y_true,y_pred)
+
+    precision,recall,f1,_ = precision_recall_fscore_support(
+        y_true,
+        y_pred,
+        average="macro",
+        zero_division=0
     )
-    
+
     try:
         model.last_logits = logits
-        loss, _ = model.compute_loss_and_output(y_test_onehot)
+        loss,_ = model.compute_loss_and_output(y_test)
     except:
         loss = 0.0
 
     return {
-        "logits": logits,
-        "loss": float(loss),
-        "accuracy": float(accuracy),
-        "f1": float(f1),
-        "precision": float(precision),
-        "recall": float(recall),
+        "logits":logits,
+        "loss":float(loss),
+        "accuracy":float(accuracy),
+        "precision":float(precision),
+        "recall":float(recall),
+        "f1":float(f1)
     }
 
 
 def main():
+
     args = parse_arguments()
 
-    model = load_model_from_disk(args.model_path, args.config_save_path, args)
+    model = load_model_from_disk(
+        args.model_path,
+        args.config_save_path,
+        args
+    )
 
     data = load_dataset(args.dataset)
-    X_test, y_test_onehot, y_test_labels = data[4], data[5], data[6]
 
-    results = evaluate_model(model, X_test, y_test_onehot, y_test_labels,
-                             batch_size=args.batch_size)
+    X_test = data[4]
+    y_test = data[5]
 
-    # EXACT text match required by the autograder instructions
+    results = evaluate_model(
+        model,
+        X_test,
+        y_test,
+        batch_size=args.batch_size
+    )
+
     print(
         f"Loss: {results['loss']:.4f}\n"
         f"Accuracy: {results['accuracy']:.4f}\n"
@@ -138,6 +162,7 @@ def main():
         f"Recall: {results['recall']:.4f}\n"
         f"F1-score: {results['f1']:.4f}"
     )
+
     return results
 
 
