@@ -2,7 +2,6 @@
 
 **Roll No:** CE23B005  
 **Name:** Chintha Vishnu Vardhan  
-**Institute:** IIT Madras
 
 ---
 
