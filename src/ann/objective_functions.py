@@ -1,20 +1,21 @@
 """
-Loss/Objective Functions and Their Derivatives
-Implements: Cross-Entropy, Mean Squared Error (MSE)
+Loss functions used during training and their corresponding gradients.
+Currently includes cross-entropy and mean squared error.
 """
 
 from typing import Tuple
-
 import numpy as np
 
 from .activations import softmax
 
 
 def mse_loss(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    """Mean squared error loss."""
     return np.mean((y_pred - y_true) ** 2)
 
 
 def mse_grad(y_true: np.ndarray, y_pred: np.ndarray) -> np.ndarray:
+    """Gradient of MSE loss."""
     batch_size = y_true.shape[0]
     return 2.0 * (y_pred - y_true) / batch_size
 
@@ -25,40 +26,25 @@ def cross_entropy_loss(
     eps: float = 1e-12,
 ) -> Tuple[float, np.ndarray]:
     """
-    Cross-entropy loss for multi-class classification with softmax outputs.
-
-    Args:
-        y_true: One-hot encoded true labels, shape (batch_size, num_classes)
-        logits: Raw output logits from the network,
-                shape (batch_size, num_classes)
-        eps: Small constant for numerical stability.
-
-    Returns:
-        (loss, probabilities):
-            loss: scalar cross-entropy loss
-            probabilities: softmax(logits), shape (batch_size, num_classes)
+    Cross-entropy loss for multi-class classification.
+    Softmax is applied internally to convert logits into probabilities.
     """
+
     probs = softmax(logits)
+
     log_probs = np.log(probs + eps)
+
     loss = -np.mean(np.sum(y_true * log_probs, axis=1))
+
     return loss, probs
 
 
 def cross_entropy_grad(y_true: np.ndarray, probs: np.ndarray) -> np.ndarray:
     """
-    Gradient of cross-entropy loss w.r.t. logits when using softmax.
-
-    Args:
-        y_true: One-hot encoded true labels, shape (batch_size, num_classes)
-        probs: Softmax probabilities, shape (batch_size, num_classes)
-
-    Returns:
-        Gradient w.r.t. logits, averaged over the batch.
-
-    IMPORTANT: Must be (probs - y_true) / batch_size — not probs - y_true/batch_size.
-    The parentheses matter: the earlier code had a precedence bug that made
-    the effective learning rate ~batch_size times smaller, killing training.
+    Gradient of cross-entropy loss with respect to logits.
+    Assumes probabilities are already obtained from softmax.
     """
+
     batch_size = y_true.shape[0]
-    # FIX: was `probs - y_true / batch_size` (wrong — only divides y_true)
+
     return (probs - y_true) / batch_size

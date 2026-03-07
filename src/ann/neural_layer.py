@@ -1,10 +1,10 @@
 """
-Neural Layer Implementation
-Handles weight initialization, forward pass, and gradient computation
+Implementation of a single fully-connected (dense) neural network layer.
+Each layer stores its parameters, performs forward propagation,
+and computes gradients during the backward pass.
 """
 
 from typing import Optional
-
 import numpy as np
 
 from .activations import ACTIVATIONS, DERIVATIVES
@@ -12,13 +12,13 @@ from .activations import ACTIVATIONS, DERIVATIVES
 
 class NeuralLayer:
     """
-    Fully-connected (dense) neural network layer.
+    Dense layer used inside the neural network.
 
-    Attributes exposed for autograder:
-        W: Weight matrix of shape (input_dim, output_dim)
-        b: Bias vector of shape (1, output_dim)
-        grad_W: Gradient of loss w.r.t. W, same shape as W
-        grad_b: Gradient of loss w.r.t. b, same shape as b
+    Attributes expected by the autograder:
+        W       : weight matrix of shape (input_dim, output_dim)
+        b       : bias vector of shape (1, output_dim)
+        grad_W  : gradient of loss with respect to W
+        grad_b  : gradient of loss with respect to b
     """
 
     def __init__(
@@ -29,6 +29,7 @@ class NeuralLayer:
         weight_init: str = "xavier",
         rng: Optional[np.random.Generator] = None,
     ) -> None:
+
         self.input_dim = int(input_dim)
         self.output_dim = int(output_dim)
         self.activation_name = activation
@@ -37,43 +38,51 @@ class NeuralLayer:
 
         self.W, self.b = self._init_parameters()
 
-        # Placeholders for cache and gradients
+        # Cached values used during backpropagation
         self.X: Optional[np.ndarray] = None
         self.Z: Optional[np.ndarray] = None
         self.A: Optional[np.ndarray] = None
 
+        # Gradients computed in backward pass
         self.grad_W: Optional[np.ndarray] = None
         self.grad_b: Optional[np.ndarray] = None
 
     def _init_parameters(self):
-        """Initialize weights and biases."""
+        """Initialize weights and biases according to the chosen scheme."""
+
         if self.weight_init == "zeros":
             W = np.zeros((self.input_dim, self.output_dim), dtype=np.float64)
+
         elif self.weight_init == "random":
-            # FIX: Use normal distribution
+            # Small random initialization
             W = self.rng.standard_normal((self.input_dim, self.output_dim)) * 0.01
-        else:  # "xavier"
-            # FIX: Use normal distribution with standard deviation
+
+        else:  # Xavier initialization
             std = np.sqrt(2.0 / (self.input_dim + self.output_dim))
             W = self.rng.standard_normal((self.input_dim, self.output_dim)) * std
 
-        # FIX: Change bias to 2D array of shape (1, output_dim)
+        # Bias stored as a row vector for broadcasting
         b = np.zeros((1, self.output_dim), dtype=np.float64)
+
         return W, b
 
     def forward(self, X: np.ndarray) -> np.ndarray:
         """
-        Forward pass through the layer.
+        Forward propagation through the layer.
 
-        Args:
-            X: Input of shape (batch_size, input_dim)
+        Parameters
+        ----------
+        X : np.ndarray
+            Input of shape (batch_size, input_dim)
 
-        Returns:
-            Output of shape (batch_size, output_dim)
+        Returns
+        -------
+        np.ndarray
+            Output of the layer after applying activation.
         """
+
         self.X = X
-        self.Z = X @ self.W + self.b  # (batch_size, output_dim)
-        # @ does matrix multiplication
+        self.Z = X @ self.W + self.b
 
         if self.activation_name is None:
             self.A = self.Z
@@ -85,32 +94,33 @@ class NeuralLayer:
 
     def backward(self, dA: np.ndarray) -> np.ndarray:
         """
-        Backward pass for the layer.
+        Backward propagation step for the layer.
 
-        Args:
-            dA: Gradient of loss w.r.t. layer output A,
-                shape (batch_size, output_dim)
+        Parameters
+        ----------
+        dA : np.ndarray
+            Gradient of loss with respect to the layer output.
 
-        Returns:
-            dX: Gradient of loss w.r.t. layer input X,
-                shape (batch_size, input_dim)
-
-        Side effects:
-            Updates self.grad_W and self.grad_b for optimizer access.
+        Returns
+        -------
+        np.ndarray
+            Gradient with respect to the layer input.
         """
-        if self.X is None or self.Z is None:
-            raise RuntimeError("Forward must be called before backward.")
 
-        # Compute dZ based on whether an activation function was used
+        if self.X is None or self.Z is None:
+            raise RuntimeError("Forward pass must be executed before backward.")
+
+        # Apply activation derivative if the layer has an activation
         if self.activation_name is None:
             dZ = dA
         else:
             derivative_fn = DERIVATIVES[self.activation_name]
             dZ = dA * derivative_fn(self.Z)
 
-        # FIX: Remove batch size division (now handled in objective function derivatives)
-        self.grad_W = (self.X.T @ dZ)
+        # Gradients for weights and bias
+        self.grad_W = self.X.T @ dZ
         self.grad_b = np.sum(dZ, axis=0, keepdims=True)
 
+        # Gradient propagated to previous layer
         dX = dZ @ self.W.T
         return dX

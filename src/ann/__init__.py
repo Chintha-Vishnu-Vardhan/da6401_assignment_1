@@ -1,1 +1,1 @@
-# ANN Module - Neural Network Implementation
+# Neural network modules
