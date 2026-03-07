@@ -1,11 +1,15 @@
 """
 Inference Script
-Loads saved model and evaluates test dataset.
+Evaluate trained model on test dataset.
 """
 
-import argparse
+import os
+import sys
 import json
+import argparse
 import numpy as np
+
+sys.path.insert(0, os.path.dirname(__file__))
 
 from ann.neural_network import NeuralNetwork
 from utils.data_loader import load_dataset
@@ -16,30 +20,60 @@ from sklearn.metrics import precision_recall_fscore_support
 
 def parse_arguments():
 
-    parser = argparse.ArgumentParser()
+    parser=argparse.ArgumentParser()
+
+    parser.add_argument("-d","--dataset",type=str,default="mnist",
+                        choices=["mnist","fashion_mnist"])
+
+    parser.add_argument("-e","--epochs",type=int,default=30)
+
+    parser.add_argument("-b","--batch_size",type=int,default=128)
+
+    parser.add_argument("-l","--loss",type=str,default="cross_entropy",
+                        choices=["cross_entropy","mse"])
+
+    parser.add_argument("-o","--optimizer",type=str,default="rmsprop",
+                        choices=["sgd","momentum","nag","rmsprop"])
+
+    parser.add_argument("-lr","--learning_rate",type=float,default=0.002)
+
+    parser.add_argument("-wd","--weight_decay",type=float,default=0.0001)
+
+    parser.add_argument("-nhl","--num_layers",type=int,default=3)
+
+    parser.add_argument("-sz","--hidden_size",type=int,nargs="+",
+                        default=[128,128,128])
+
+    parser.add_argument("-a","--activation",type=str,default="tanh",
+                        choices=["relu","sigmoid","tanh"])
+
+    parser.add_argument("-w_i","--weight_init",type=str,default="xavier",
+                        choices=["xavier","random"])
+
+    parser.add_argument("-w_p","--wandb_project",type=str,default=None)
 
     parser.add_argument("--model_path",type=str,default="src/best_model.npy")
+
     parser.add_argument("--config_path",type=str,default="src/best_config.json")
+
+    parser.add_argument("--val_split",type=float,default=0.1)
+
+    parser.add_argument("--seed",type=int,default=42)
 
     return parser.parse_args()
 
 
-def load_model(model_path,config_path):
+def load_model(args):
 
-    with open(config_path) as f:
+    with open(args.config_path) as f:
         cfg=json.load(f)
-
-    class Args:
-        pass
-
-    args=Args()
 
     for k,v in cfg.items():
         setattr(args,k,v)
 
     model=NeuralNetwork(args)
 
-    weights=np.load(model_path,allow_pickle=True).item()
+    weights=np.load(args.model_path,allow_pickle=True).item()
 
     model.set_weights(weights)
 
@@ -48,18 +82,19 @@ def load_model(model_path,config_path):
 
 def evaluate(model,args):
 
-    data=load_dataset(args.dataset)
+    data = load_dataset(args.dataset)
 
-    X_test,y_test_onehot,y_test_labels=data[4],data[5],data[6]
+    X_test = data[4]
+    y_test = data[6]
 
     logits=model.forward(X_test)
 
     preds=np.argmax(logits,axis=1)
 
-    accuracy=accuracy_score(y_test_labels,preds)
+    accuracy=accuracy_score(y_test,preds)
 
     precision,recall,f1,_=precision_recall_fscore_support(
-        y_test_labels,
+        y_test,
         preds,
         average="macro",
         zero_division=0
@@ -75,9 +110,9 @@ def main():
 
     args=parse_arguments()
 
-    model,cfg=load_model(args.model_path,args.config_path)
+    model,args=load_model(args)
 
-    evaluate(model,cfg)
+    evaluate(model,args)
 
 
 if __name__=="__main__":
