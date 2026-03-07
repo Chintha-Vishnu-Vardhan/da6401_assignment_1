@@ -30,7 +30,7 @@ da6401_assignment_1/
 │   │   ├── neural_layer.py          # single dense layer with forward/backward
 │   │   ├── neural_network.py        # full MLP: build, train, evaluate, save/load
 │   │   ├── objective_functions.py   # cross-entropy and MSE losses + gradients
-│   │   └── optimizers.py            # SGD, Momentum, NAG, RMSProp, Adam, Nadam
+│   │   └── optimizers.py            # SGD, Momentum, NAG, RMSProp
 │   │
 │   ├── utils/
 │   │   ├── __init__.py
