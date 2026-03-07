@@ -81,7 +81,7 @@ def load_model_from_disk(model_path:str,config_path:str,args:Any)->NeuralNetwork
     if isinstance(weights,np.ndarray) and weights.ndim==0:
         weights = weights.item()
 
-    model = NeuralNetwork(args,input_dim=784,num_classes=10)
+    model = NeuralNetwork(args)
     model.set_weights(weights)
 
     return model

@@ -67,7 +67,19 @@ def maybe_init_wandb(args: Any):
 
 def save_model_and_config(model: NeuralNetwork,args: Any):
 
-    config = vars(args).copy()
+    config = {
+    "dataset": args.dataset,
+    "epochs": args.epochs,
+    "batch_size": args.batch_size,
+    "loss": args.loss,
+    "optimizer": args.optimizer,
+    "learning_rate": args.learning_rate,
+    "weight_decay": args.weight_decay,
+    "num_layers": args.num_layers,
+    "hidden_size": args.hidden_size,
+    "activation": args.activation,
+    "weight_init": args.weight_init,
+    }
 
     if not isinstance(config.get("hidden_size"),list):
         config["hidden_size"] = list(config["hidden_size"])
